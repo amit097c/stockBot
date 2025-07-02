@@ -4,7 +4,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.Driver;
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -14,12 +16,37 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import com.stock.api.AlpacaApiClient;
+import com.stock.dao.StockPriceDAO;
+import com.stock.model.StockBar;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+
 /**
  * Hello world!
  *
  */
 public class App 
 {
+
+    public static void main(String[] args) {
+        String symbol = "AAPL";
+
+        AlpacaApiClient apiClient = new AlpacaApiClient();
+        List<StockBar> bars = apiClient.fetchStockBars(symbol);
+
+        StockPriceDAO dao = new StockPriceDAO();
+        for (StockBar bar : bars) {
+            dao.saveStockBar(bar);
+        }
+    }
+    /* 
+
+    This is a Java application prototype that fetches stock market data from the Alpaca API
 
     // Setting the API key and secret as constants
     private static final String API_KEY = "PKMXFOXOMDPMNUMB3TXR";
@@ -36,8 +63,6 @@ public class App
       Map<String, String> timeWindow = getMarketTimeWindowUtc();
       String start = timeWindow.get("start");
       String end = timeWindow.get("end");
-
-     
      
       //String start = formatter.format(lastWeek);
       //String end = formatter.format(now);
@@ -49,47 +74,29 @@ public class App
        try {
 
             System.out.println("base url + queryParams: " + BASE_URL + "?" + queryParams);
-            URL url1=new URL(BASE_URL + "?" + queryParams);
+            URL url=new URL(BASE_URL + "?" + queryParams);
             
             // Construct the full URL
 //"https://data.alpaca.markets/v2/stocks/bars";
-            URL url = new URL("https://data.alpaca.markets/v2/stocks/bars?symbols=AAPL&timeframe=15Min&start=2025-05-18T00:00:00Z&end=2025-05-25T00:00:00Z&limit=1000&adjustment=raw&feed=sip&sort=asc");
+          //  URL url = new URL("https://data.alpaca.markets/v2/stocks/bars?symbols=AAPL&timeframe=15Min&start=2025-05-18T00:00:00Z&end=2025-05-25T00:00:00Z&limit=1000&adjustment=raw&feed=sip&sort=asc");
             String actual_url=url.toString();
-            System.out.println("Actual URL: " +  actual_url);
-            System.out.println("are they equal? "+ actual_url.equals(BASE_URL + "?" + queryParams));
+            System.out.println("App:58 Actual URL: " +  actual_url);
+           // System.out.println("are they equal? "+ actual_url.equals(BASE_URL + "?" + queryParams));
             
-            
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            
-            HttpURLConnection conn1 = (HttpURLConnection) url1.openConnection();
+            //API Request Setup
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();   
            
             conn.setRequestMethod("GET");
-
             conn.setRequestProperty("APCA-API-KEY-ID", API_KEY);
             conn.setRequestProperty("APCA-API-SECRET-KEY", API_SECRET);
             conn.setRequestProperty("accept", "application/json");
 
-            
-            conn1.setRequestMethod("GET");
-
-            conn1.setRequestProperty("APCA-API-KEY-ID", API_KEY);
-            conn1.setRequestProperty("APCA-API-SECRET-KEY", API_SECRET);
-            conn1.setRequestProperty("accept", "application/json");
-
-            
-            
+                        
             int responseCode = conn.getResponseCode();
-            System.out.println("Response Code: " + responseCode);
-
-            int responseCode1 = conn.getResponseCode();
-            System.out.println("Response Code of dynamic url: " + responseCode1);
+            System.out.println("App:71 Response Code: " + responseCode);
 
             BufferedReader in = new BufferedReader(
                 new InputStreamReader(conn.getInputStream())
-            );
-
-            BufferedReader in1 = new BufferedReader(
-                new InputStreamReader(conn1.getInputStream())
             );
 
             String inputLine;
@@ -99,21 +106,58 @@ public class App
                 response.append(inputLine);
             }
             in.close();
-            System.out.println("Response of static url JSON:");
+            System.out.println("App:84 Response of static url JSON:");
             System.out.println(response.toString());
 
-            response = new StringBuilder();
+            //storing the response in a DB
+            JSONObject  jsonResponse = new JSONObject(response.toString());
+            JSONObject bars = jsonResponse.getJSONObject("bars");
+            System.out.println("App:90 Bars JSON Object length:"+bars.length());
+            
+            //connection to database and storing the data
+            Connection connDb=DriverManager.getConnection("jdbc:mysql://localhost:3306/stockdb", "root", "root");
+            String sql_insert = "INSERT INTO stock_prices (symbol,open, high, low, close, volume,timeframe,num_trades,vwap,add_date) VALUES (?, ?, ?, ?, ?, ?, ?,?, ?, ?)";
+            
+            System.out.println("App:100 sql_insert raw query: " + sql_insert);
+            JSONArray symbol_bars = bars.getJSONArray(symbol);
+            LocalDateTime time = LocalDateTime.now(); // current date and time
+            DateTimeFormatter time_formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String dateTimeString = time.format(time_formatter);
 
-            while ((inputLine = in1.readLine()) != null) {
-                response.append(inputLine);
-            }
-            in1.close();
-            System.out.println("Response of dynamic url JSON:");
-            System.out.println(response.toString());
+            for(int i=0;i<symbol_bars.length();i++)
+             {
+                JSONObject bar = symbol_bars.getJSONObject(i);
+                double open = bar.getDouble("o");
+                double high = bar.getDouble("h");
+                double low = bar.getDouble("l");
+                double close = bar.getDouble("c");
+                long volume = bar.getLong("v");
+                String timeframe = bar.getString("t");
+                int numTrades = bar.getInt("n");
+                double vwap = bar.getDouble("vw");
+                String addDate = dateTimeString;
 
+                // Prepare and execute the insert statement
+                try (var preparedStatement = connDb.prepareStatement(sql_insert)) {
+                    preparedStatement.setString(1, symbol);
+                    preparedStatement.setDouble(2, open);
+                    preparedStatement.setDouble(3, high);
+                    preparedStatement.setDouble(4, low);
+                    preparedStatement.setDouble(5, close);
+                    preparedStatement.setLong(6, volume);
+                    preparedStatement.setString(7, timeframe);
+                    preparedStatement.setInt(8, numTrades);
+                    preparedStatement.setDouble(9, vwap);
+                    preparedStatement.setString(10, addDate);
 
+                    int rowsAffected = preparedStatement.executeUpdate();
+                    System.out.println("App:123 Rows affected: " + rowsAffected);
+                }
+             }
+        } 
 
-        } catch (Exception e) {
+     catch (Exception e) 
+        {
             e.printStackTrace();
         }
     }
@@ -151,5 +195,5 @@ public class App
         result.put("end", formatter.format(endUTC));
 
         return result;
-    }
+    }*/
 }

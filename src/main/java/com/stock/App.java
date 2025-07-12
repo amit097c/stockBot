@@ -6,6 +6,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.Driver;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -20,30 +21,207 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.stock.api.AlpacaApiClient;
+import com.stock.dao.OrderDAO;
 import com.stock.dao.StockPriceDAO;
 import com.stock.model.StockBar;
+import com.stock.model.Volatility;
+import com.stock.strategy.MovingAverageStrategy;
+import com.stock.strategy.StandardDeviationCal;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 
-/**
- * Hello world!
- *
- */
 public class App 
 {
 
     public static void main(String[] args) {
-        String symbol = "AAPL";
+        String symbol = "TSLA";//"AAPL";
+        simlateTrade( symbol);
+        
+    }
+    public static void simlateTrade(String symbol)
+     {
+      AlpacaApiClient apiClient = new AlpacaApiClient();
+      StockPriceDAO dao = new StockPriceDAO();
+      StandardDeviationCal stdDevCal = new StandardDeviationCal();
+      List<Volatility> vol_vals=dao.getAllVolatility(symbol);
+      OrderDAO orderDao = new OrderDAO();
+      Double previousClose = 187.35; // last close price for TSLA
+      for(Volatility vol:vol_vals) 
+        {
+          LocalDate date=vol.getDate();
+          double vol_val=vol.getVol();
+          System.out.println("App:54 date: " + date + ",  Volatility: " + vol_val);
+          //Fetch stock bars for the date
+          List<StockBar> bars = apiClient.fetchStockBarsForDay(symbol, date);
+          if (bars == null || bars.isEmpty()) {
+            System.out.println("No stock bars found for symbol: " + symbol + " on date: " + date);
+            continue;
+           }
+          Double std_dev_1=0.0;
+          Double std_dev_2=0.0;   
+          Double std_dev_3=0.0;   
+          Double std_dev_1_high=0.0;
+          Double std_dev_1_low=0.0;
+          Double std_dev_2_high=0.0;
+          Double std_dev_2_low=0.0;
+          Double std_dev_3_high=0.0;
+          Double std_dev_3_low=0.0;
+                  
+          String signal="hold";        
+          std_dev_1=stdDevCal.compute_std_dev_1(previousClose,vol_val);
+          std_dev_2=stdDevCal.compute_std_dev_2(previousClose,vol_val);
+          std_dev_3=stdDevCal.compute_std_dev_3(previousClose,vol_val);
+               
+          std_dev_1_high=previousClose + std_dev_1;
+          std_dev_1_low=previousClose - std_dev_1;
+          std_dev_2_high=previousClose + std_dev_2;
+          std_dev_2_low=previousClose - std_dev_2;
+          std_dev_3_high=previousClose + std_dev_3;
+          std_dev_3_low=previousClose - std_dev_3;
+        
+          for(int i=0;i<bars.size();i++) {
+            
+            System.out.println("App:40 StockBar for " + symbol + " on " + date + ": " +date);                            
+            StockBar bar = bars.get(i);  
+            double high = bar.getHigh();
+            double low = bar.getLow();  
+            double close = bar.getClose();
+            String breach_low = "none";
+            String breach_high = "none";
+            boolean isBuySignal = false;
+            boolean isSellSignal = false;
 
-        AlpacaApiClient apiClient = new AlpacaApiClient();
-        List<StockBar> bars = apiClient.fetchStockBars(symbol);
+            // Check LOW breaches
+            if (low < std_dev_3_low) {
+                breach_low = "low_3_breach";
+                isBuySignal = true;
+            } else if (low < std_dev_2_low) {
+                breach_low = "low_2_breach";
+            } else if (low < std_dev_1_low) {
+                breach_low = "low_1_breach";
+            }
 
+            int currentHoldings = orderDao.getCurrentHoldings(symbol);
+
+            if (high > std_dev_2_low && currentHoldings > 0) {
+                System.out.println("App: SELL signal for " + symbol + " on " + date + " high_price: " + bar.getHigh());
+                isSellSignal = true;
+            }
+           
+
+         
+            // Check HIGH breaches
+            if (high > std_dev_3_high) {
+                breach_high = "high_3_breach";              
+            } else if (high > std_dev_2_high) {
+                breach_high = "high_2_breach";
+            } else if (high > std_dev_1_high) {
+                breach_high = "high_1_breach";
+            }
+           
+            
+          
+            int deviationId =dao.saveStockVolStdDev(
+                bar,
+                date,
+                std_dev_1_high,
+                std_dev_1_low,
+                std_dev_2_high,
+                std_dev_2_low,
+                std_dev_3_high,
+                std_dev_3_low,
+                vol_val,
+                breach_low,
+                breach_high
+               );
+            int quantity=100;   
+            if (isBuySignal && deviationId != -1) 
+              {
+                 orderDao.placeBuyOrder(
+                    deviationId,
+                    symbol,
+                    bar.getLow(),
+                    quantity,
+                    date,
+                    vol_val
+                    );
+              }   
+
+           
+
+            if (isSellSignal && deviationId != -1&&!isBuySignal) {
+                int sellQty = Math.min(currentHoldings, quantity); // Sell only what you have or up to your default qty
+                orderDao.placeSellOrder(
+                    deviationId,
+                    symbol,
+                    bar.getHigh(),
+                    sellQty,
+                    date,
+                    vol_val
+                );
+            }  
+            System.out.println("App:101 Saved stock bar with standard deviation for " + symbol + " on " + date);
+            if(i==bars.size()-1)
+              {
+                System.out.println("App:110 Last stock bar for " + symbol + " on " + date + ": " + bar);
+                previousClose=bars.get(i).getClose();
+              }
+            } 
+        }
+     }
+}
+    // List<StockBar> bars = apiClient.fetchStockBars(symbol);
+       
+       
+       //placing a market order
+     /*   System.out.println("App:42 placing order for " + symbol+" for 2 shares");
+       apiClient.placeMarketOrder(symbol, 2, "buy");
+       System.out.println("App:21 Fetched stock bars for symbol: " + symbol);
+       */
+
+     // Fetch stockbar records from db
+      /*   StockPriceDAO dao = new StockPriceDAO();
+        List<StockBar> bars = dao.getAllStockBar();
+        if (bars == null || bars.isEmpty()) {
+            System.out.println("No stock bars found for symbol: " + symbol);
+            return;
+        }
+        
+       MovingAverageStrategy.Action signal = MovingAverageStrategy.getSignal(bars);
+       int n=bars.size();
+       System.out.println("App:61 Trading signal for " + symbol + " on " + bars.get(n - 1).getAddDate()+ ": " + signal);  
+       */ // Uncomment the following lines to print stock bars
+        /*for (StockBar bar : bars) {
+            System.out.println(bar);
+        }*/
+        
+        // Uncomment the following lines to execute a trading strategy
+        /*MovingAverageStrategy.Action action = MovingAverageStrategy.getSignal(bars);
+        System.out.println("Trading action for " + symbol + ": " + action);*/
+
+       
+       // Uncomment the following lines to fetch and save stock bars
+        /*if (bars == null || bars.isEmpty()) {
+            System.out.println("No stock bars found for symbol: " + symbol);
+            return;
+        }
         StockPriceDAO dao = new StockPriceDAO();
         for (StockBar bar : bars) {
             dao.saveStockBar(bar);
+        }*/
+        
+        // Uncomment the following lines to fetch stock bars for a specific date
+       /*  List<StockBar> bars = apiClient.fetchStockBarsForDay(symbol,LocalDate.of(2025, 7, 01));
+        if(bars == null || bars.isEmpty()) {
+            System.out.println("No stock bars found for symbol: " + symbol);
+            return;
         }
-    }
+        StockPriceDAO dao = new StockPriceDAO();
+        for (StockBar bar : bars) {
+            dao.saveStockBar(bar);
+        }*/
+    
     /* 
 
     This is a Java application prototype that fetches stock market data from the Alpaca API
@@ -196,4 +374,4 @@ public class App
 
         return result;
     }*/
-}
+

@@ -46,7 +46,7 @@ public class App
       StandardDeviationCal stdDevCal = new StandardDeviationCal();
       List<Volatility> vol_vals=dao.getAllVolatility(symbol);
       OrderDAO orderDao = new OrderDAO();
-      Double previousClose = 187.35; // last close price for TSLA
+      Double previousClose = 282.16; // last close price for TSLA
       for(Volatility vol:vol_vals) 
         {
           LocalDate date=vol.getDate();
@@ -59,24 +59,81 @@ public class App
             continue;
            }
           Double std_dev_1=0.0;
-          Double std_dev_2=0.0;   
+          Double std_dev_1_25=0.0;
+          Double std_dev_1_50=0.0;
+          Double std_dev_1_75=0.0;
+          Double std_dev_1_77=0.0;          
+          Double std_dev_2=0.0;  
+          Double std_dev_2_25=0.0;
+          Double std_dev_2_50=0.0;
+          Double std_dev_2_75=0.0; 
           Double std_dev_3=0.0;   
-          Double std_dev_1_high=0.0;
+          
           Double std_dev_1_low=0.0;
-          Double std_dev_2_high=0.0;
+          Double std_dev_1_25_low=0.0;
+          Double std_dev_1_50_low=0.0;
+          Double std_dev_1_75_low=0.0;
+          Double std_dev_1_77_low=0.0;
+          Double std_dev_1_high=0.0;
+          Double std_dev_1_25_high=0.0;
+          Double std_dev_1_50_high=0.0;
+          Double std_dev_1_75_high=0.0;
+          Double std_dev_1_77_high=0.0;
+
           Double std_dev_2_low=0.0;
-          Double std_dev_3_high=0.0;
+          Double std_dev_2_25_low=0.0;
+          Double std_dev_2_50_low=0.0;
+          Double std_dev_2_75_low=0.0;
+          Double std_dev_2_high=0.0;
+          Double std_dev_2_25_high=0.0;
+          Double std_dev_2_50_high=0.0;
+          Double std_dev_2_75_high=0.0;
+          
           Double std_dev_3_low=0.0;
+          Double std_dev_3_high=0.0;
+          
                   
-          String signal="hold";        
+       
           std_dev_1=stdDevCal.compute_std_dev_1(previousClose,vol_val);
+          std_dev_1_25=stdDevCal.compute_std_dev_1_25(previousClose,vol_val);
+          std_dev_1_50=stdDevCal.compute_std_dev_1_50(previousClose,vol_val);
+          std_dev_1_75=stdDevCal.compute_std_dev_1_75(previousClose,vol_val);
+          std_dev_1_77=stdDevCal.compute_std_dev_1_77(previousClose,vol_val);
           std_dev_2=stdDevCal.compute_std_dev_2(previousClose,vol_val);
+          std_dev_2_25=stdDevCal.compute_std_dev_2_25(previousClose,vol_val);
+          std_dev_2_50=stdDevCal.compute_std_dev_2_50(previousClose,vol_val);
+          std_dev_2_75=stdDevCal.compute_std_dev_2_75(previousClose,vol_val);
           std_dev_3=stdDevCal.compute_std_dev_3(previousClose,vol_val);
                
-          std_dev_1_high=previousClose + std_dev_1;
           std_dev_1_low=previousClose - std_dev_1;
+          std_dev_1_high=previousClose + std_dev_1;
+
+          std_dev_1_25_low=previousClose - std_dev_1_25;
+          std_dev_1_25_high=previousClose + std_dev_1_25;
+          
+          std_dev_1_50_low=previousClose - std_dev_1_50;
+          std_dev_1_50_high=previousClose + std_dev_1_50;
+
+          std_dev_1_75_low=previousClose - std_dev_1_75;
+          std_dev_1_75_high=previousClose + std_dev_1_75;
+          
+          std_dev_1_77_low=previousClose - std_dev_1_77;
+          std_dev_1_77_high=previousClose + std_dev_1_77;
+          
+
           std_dev_2_high=previousClose + std_dev_2;
           std_dev_2_low=previousClose - std_dev_2;
+          
+          std_dev_2_25_low=previousClose - std_dev_2_25;
+          std_dev_2_25_high=previousClose + std_dev_2_25;
+
+          std_dev_2_50_low=previousClose - std_dev_2_50;
+          std_dev_2_50_high=previousClose + std_dev_2_50;
+
+          std_dev_2_75_low=previousClose - std_dev_2_75;
+          std_dev_2_75_high=previousClose + std_dev_2_75;
+
+
           std_dev_3_high=previousClose + std_dev_3;
           std_dev_3_low=previousClose - std_dev_3;
         
@@ -87,24 +144,42 @@ public class App
             double high = bar.getHigh();
             double low = bar.getLow();  
             double close = bar.getClose();
+            double open = bar.getOpen();
             String breach_low = "none";
             String breach_high = "none";
             boolean isBuySignal = false;
             boolean isSellSignal = false;
+            boolean isStopLossSignal=false;
 
             // Check LOW breaches
             if (low < std_dev_3_low) {
                 breach_low = "low_3_breach";
-                isBuySignal = true;
+            } else if (low < std_dev_2_75_low) {
+                breach_low = "low_2_75_breach";
+            } else if (low < std_dev_2_50_low) {
+                breach_low = "low_2_50_breach";
+            } else if (low < std_dev_2_25_low) {
+                breach_low = "low_2_25_breach";
             } else if (low < std_dev_2_low) {
                 breach_low = "low_2_breach";
+            } else if (low < std_dev_1_77_low) {
+                breach_low = "low_1_77_breach";
+                isStopLossSignal = true;
+            } else if (low < std_dev_1_75_low) {
+                breach_low = "low_1_75_breach";
+                isBuySignal = true;
+            } 
+            else if (low < std_dev_1_50_low) {
+                breach_low = "low_1_50_breach";
+            } else if (low < std_dev_1_25_low) {
+                breach_low = "low_1_25_breach";
             } else if (low < std_dev_1_low) {
                 breach_low = "low_1_breach";
             }
 
             int currentHoldings = orderDao.getCurrentHoldings(symbol);
 
-            if (high > std_dev_2_low && currentHoldings > 0) {
+            if (open > std_dev_1_50_low&& currentHoldings > 0) {
                 System.out.println("App: SELL signal for " + symbol + " on " + date + " high_price: " + bar.getHigh());
                 isSellSignal = true;
             }
@@ -114,8 +189,20 @@ public class App
             // Check HIGH breaches
             if (high > std_dev_3_high) {
                 breach_high = "high_3_breach";              
+            } else if (high > std_dev_2_75_high) {
+                breach_high = "high_2_75_breach";
+            } else if (high > std_dev_2_50_high) {
+                breach_high = "high_2_50_breach";
+            } else if (high > std_dev_2_25_high) {
+                breach_high = "high_2_25_breach";
             } else if (high > std_dev_2_high) {
                 breach_high = "high_2_breach";
+            } else if (high > std_dev_1_75_high) {
+                breach_high = "high_1_75_breach";
+            } else if (high > std_dev_1_50_high) {
+                breach_high = "high_1_50_breach";
+            } else if (high > std_dev_1_25_high) {
+                breach_high = "high_1_25_breach";
             } else if (high > std_dev_1_high) {
                 breach_high = "high_1_breach";
             }
@@ -125,12 +212,33 @@ public class App
             int deviationId =dao.saveStockVolStdDev(
                 bar,
                 date,
-                std_dev_1_high,
                 std_dev_1_low,
-                std_dev_2_high,
+                std_dev_1_high,
+
+                std_dev_1_25_low,
+                std_dev_1_25_high,
+                
+                std_dev_1_50_low,
+                std_dev_1_50_high,
+                
+                std_dev_1_75_low,
+                std_dev_1_75_high,
+
                 std_dev_2_low,
-                std_dev_3_high,
+                std_dev_2_high,
+
+                std_dev_2_25_low,
+                std_dev_2_25_high,
+                
+                std_dev_2_50_low,
+                std_dev_2_50_high,
+
+                std_dev_2_75_low,
+                std_dev_2_75_high,
+
                 std_dev_3_low,
+                std_dev_3_high,
+
                 vol_val,
                 breach_low,
                 breach_high
@@ -155,7 +263,7 @@ public class App
                 orderDao.placeSellOrder(
                     deviationId,
                     symbol,
-                    bar.getHigh(),
+                    bar.getOpen(),
                     sellQty,
                     date,
                     vol_val

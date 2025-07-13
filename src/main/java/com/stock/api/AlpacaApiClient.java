@@ -30,7 +30,7 @@ public class AlpacaApiClient
         List<StockBar> result = new ArrayList<>();
         try {
             String queryParams = String.format(
-                "symbols=%s&timeframe=15Min&start=%s&end=%s&limit=1000&adjustment=raw&feed=sip&sort=asc",
+                "symbols=%s&timeframe=1Min&start=%s&end=%s&limit=1000&adjustment=raw&feed=sip&sort=asc",
                 symbol, TimeUtils.getTimeWindow().get("start"), TimeUtils.getTimeWindow().get("end")
             );
 
@@ -99,7 +99,7 @@ public class AlpacaApiClient
             String endStr = formatter.format(endUTC);
 
             String queryParams = String.format(
-                    "symbols=%s&timeframe=15Min&start=%s&end=%s&limit=1000&adjustment=raw&feed=sip&sort=asc",
+                    "symbols=%s&timeframe=1Min&start=%s&end=%s&limit=1000&adjustment=raw&feed=sip&sort=asc",
                     symbol, startStr, endStr
             );
 

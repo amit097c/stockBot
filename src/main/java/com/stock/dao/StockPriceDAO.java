@@ -41,14 +41,20 @@ public class StockPriceDAO {
               }*/
 
 
-    public int saveStockVolStdDev(StockBar bar,LocalDate date, double std_dev_1_high, double std_dev_1_low,
+    public int saveStockVolStdDev(StockBar bar,LocalDate date,double std_dev_1_low, double std_dev_1_high, 
+                                   double std_dev_1_25_low, double std_dev_1_25_high,
+                                   double std_dev_1_50_low, double std_dev_1_50_high,
+                                   double std_dev_1_75_low, double std_dev_1_75_high, 
                                    double std_dev_2_high, double std_dev_2_low,
+                                   double std_dev_2_25_high, double std_dev_2_25_low,
+                                   double std_dev_2_50_high, double std_dev_2_50_low,
+                                   double std_dev_2_75_high, double std_dev_2_75_low,
                                    double std_dev_3_high, double std_dev_3_low,double vol_val,
                                    String breach_low, String breach_high) {
 
 
-        String sql = "INSERT INTO stock_price_deviation (symbol,date,close_price, high_price, low_price,std_dev_1_high,std_dev_1_low,std_dev_2_high,std_dev_2_low,std_dev_3_high,std_dev_3_low,vol_val, breach_low,breach_high,timeframe) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)";
+        String sql = "INSERT INTO stock_price_deviation (symbol,date,close_price, high_price, low_price,std_dev_1_low,std_dev_1_high,std_dev_1_25_low,std_dev_1_25_high,std_dev_1_50_low,std_dev_1_50_high,std_dev_1_75_low,std_dev_1_75_high,std_dev_2_low,std_dev_2_high,std_dev_2_25_low,std_dev_2_25_high,std_dev_2_50_low,std_dev_2_50_high,std_dev_2_75_low,std_dev_2_75_high,std_dev_3_high,std_dev_3_low,vol_val,breach_low,breach_high,timeframe) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);) {
             ps.setString(1, bar.getSymbol());
             ps.setString(2, date.toString());
@@ -56,22 +62,40 @@ public class StockPriceDAO {
             ps.setDouble(4, bar.getHigh());
             ps.setDouble(5, bar.getLow());
 
-            ps.setDouble(6, std_dev_1_high);            
-            ps.setDouble(7, std_dev_1_low);
+            ps.setDouble(6, std_dev_1_low);            
+            ps.setDouble(7, std_dev_1_high);
+
+            ps.setDouble(8, std_dev_1_25_low);            
+            ps.setDouble(9, std_dev_1_25_high);
             
-            ps.setDouble(8, std_dev_2_high);            
-            ps.setDouble(9, std_dev_2_low);
+            ps.setDouble(10, std_dev_1_50_low);            
+            ps.setDouble(11, std_dev_1_50_high);
             
-            ps.setDouble(10, std_dev_3_high);            
-            ps.setDouble(11, std_dev_3_low);
+            ps.setDouble(12, std_dev_1_75_low);            
+            ps.setDouble(13, std_dev_1_75_high);
             
-            ps.setDouble(12, vol_val);
-            ps.setString(13, breach_low);
-            ps.setString(14, breach_high);
+            ps.setDouble(14, std_dev_2_high);            
+            ps.setDouble(15, std_dev_2_low);
+       
+            ps.setDouble(16, std_dev_2_25_high);            
+            ps.setDouble(17, std_dev_2_25_low);
+            
+            ps.setDouble(18, std_dev_2_50_high);            
+            ps.setDouble(19, std_dev_2_50_low);
+            
+            ps.setDouble(20, std_dev_2_75_high);            
+            ps.setDouble(21, std_dev_2_75_low);
+                       
+            ps.setDouble(22, std_dev_3_high);            
+            ps.setDouble(23, std_dev_3_low);
+            
+            ps.setDouble(24, vol_val);
+            ps.setString(25, breach_low);
+            ps.setString(26, breach_high);
             String utcStr = bar.getTimeframe();
             Instant instant = Instant.parse(utcStr);
             ZonedDateTime nyTime = instant.atZone(ZoneId.of("America/New_York"));
-            ps.setString(15,nyTime.toLocalDateTime().toString());
+            ps.setString(27,nyTime.toLocalDateTime().toString());
            
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {

@@ -55,7 +55,16 @@ public int getCurrentHoldings(String symbol) {
     }
     return 0;
     }
-    
+   public void close() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("OrderDAO::close:62 Connection closed.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
    public void placeSellOrder(int deviationId, String symbol, double price, int qty, LocalDate date, double volatility) {
     String sql = "INSERT INTO orders (deviation_id, symbol, price, qty, date, volatility, side, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     try (PreparedStatement ps = connection.prepareStatement(sql)) {

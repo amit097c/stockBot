@@ -8,6 +8,7 @@ import java.sql.Driver;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -16,6 +17,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -34,11 +38,307 @@ import java.sql.DriverManager;
 public class App 
 {
 
+    //Standard deviations variables
+    Double std_dev_1=0.0;
+    Double std_dev_1_25=0.0;
+    Double std_dev_1_50=0.0;
+    Double std_dev_1_75=0.0;
+    Double std_dev_1_77=0.0;          
+    Double std_dev_2=0.0;  
+    Double std_dev_2_25=0.0;
+    Double std_dev_2_50=0.0;
+    Double std_dev_2_75=0.0; 
+    Double std_dev_3=0.0;   
+          
+    Double std_dev_1_low=0.0;
+    Double std_dev_1_25_low=0.0;
+    Double std_dev_1_50_low=0.0;
+    Double std_dev_1_75_low=0.0;
+    Double std_dev_1_77_low=0.0;
+    Double std_dev_1_high=0.0;
+    Double std_dev_1_25_high=0.0;
+    Double std_dev_1_50_high=0.0;
+    Double std_dev_1_75_high=0.0;
+    Double std_dev_1_77_high=0.0;
+
+    Double std_dev_2_low=0.0;
+    Double std_dev_2_25_low=0.0;
+    Double std_dev_2_50_low=0.0;
+    Double std_dev_2_75_low=0.0;
+    Double std_dev_2_high=0.0;
+    Double std_dev_2_25_high=0.0;
+    Double std_dev_2_50_high=0.0;
+    Double std_dev_2_75_high=0.0;
+    
+    Double std_dev_3_low=0.0;
+    Double std_dev_3_high=0.0;
+    private static final long INTERVAL_SECONDS = 60;
+    static final StockPriceDAO dao = new StockPriceDAO();
+    static final OrderDAO orderDao = new OrderDAO();
+
     public static void main(String[] args) {
-        String symbol = "TSLA";//"AAPL";
-        simlateTrade( symbol);
-        
+      /*  String symbol = "META";//"AAPL";
+       AlpacaApiClient apiClient = new AlpacaApiClient();
+       
+       int alpacaHoldings = 0;
+         try {
+        alpacaHoldings = apiClient.getBuyOrders(symbol); // You need to implement this
+        System.out.println("Current holdings for " + symbol + ": " + alpacaHoldings);
+    } catch (Exception e) {
+        System.out.println("Could not fetch position from Alpaca: " + e.getMessage());
+    }*/
+       //simlateTrade( symbol);
+      // apiClient.placePaperOrder("TSLA", 10, "buy", "market", null, null, null);
+      // AlpacaApiClient apiClient = new AlpacaApiClient();
+       //apiClient.placeBracketOrder("TSLA", 5, 312.14, 315.01);
+       test_live_trade();
+       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        System.out.println("Shutting down... Closing DB connections.");
+        dao.close();
+        orderDao.close();
+    }));
     }
+    //To do : limit qty , parallel hourly and 
+    public static void test_live_trade()
+     {
+        Map<String,List<Double>> symbolClosePriceVolatilityMap = new HashMap<>();
+        symbolClosePriceVolatilityMap.put("TSLA", List.of(319.41, 0.5477)); // Close price, volatility
+        symbolClosePriceVolatilityMap.put("AAPL", List.of(210.02, 0.2926));
+        symbolClosePriceVolatilityMap.put("AMZN", List.of(223.88, 0.3475)); // Close price, volatility
+        symbolClosePriceVolatilityMap.put("GOOG", List.of(184.70, 0.3651)); // Close price, volatility  
+        symbolClosePriceVolatilityMap.put("META", List.of(702.91, 0.3938)); // Close price, volatility  
+        symbolClosePriceVolatilityMap.put("NVDA", List.of(173.00, 0.3524)); // Close price, volatility  
+        symbolClosePriceVolatilityMap.put("MSFT", List.of(505.82, 0.2510));
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(symbolClosePriceVolatilityMap.size());
+               
+        for (String symbol : symbolClosePriceVolatilityMap.keySet()) {
+            final String sym = symbol;
+            scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    App app = new App();
+                    Double previousClose = symbolClosePriceVolatilityMap.get(sym).get(0);
+                    Double volatility = symbolClosePriceVolatilityMap.get(sym).get(1);
+                    app.liveTrade(sym, previousClose, volatility);
+                } catch (Exception e) {
+                    System.err.println("Error for symbol " + sym + ": " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }, 0, INTERVAL_SECONDS, TimeUnit.SECONDS);
+        }
+
+
+        // ➕ New thread to stop the scheduler at 4:00 PM
+        ScheduledExecutorService shutdownScheduler = Executors.newSingleThreadScheduledExecutor();
+
+        Runnable shutdownTask = () -> {
+        LocalTime now = LocalTime.now(ZoneId.of("America/New_York"));  // Use correct timezone
+        if (now.isAfter(LocalTime.of(16, 0))) { // 4:00 PM
+            System.out.println(" Stopping trading scheduler at: " + now);
+            scheduler.shutdown();
+            System.exit(0);
+            shutdownScheduler.shutdown();  // stop this checker too
+        }
+    };
+
+        // Check every minute if it's past 4:00 PM
+        shutdownScheduler.scheduleAtFixedRate(shutdownTask, 0, 1, TimeUnit.MINUTES);
+
+    }
+    public void pre_compute_standard_deviations(StandardDeviationCal stdDevCal, Double previousClose,Double volatility)
+     {
+                        
+        std_dev_1=stdDevCal.compute_std_dev_1(previousClose,volatility);
+        std_dev_1_25=stdDevCal.compute_std_dev_1_25(previousClose,volatility);
+        std_dev_1_50=stdDevCal.compute_std_dev_1_50(previousClose,volatility);
+        std_dev_1_75=stdDevCal.compute_std_dev_1_75(previousClose,volatility);
+        std_dev_1_77=stdDevCal.compute_std_dev_1_77(previousClose,volatility);
+        std_dev_2=stdDevCal.compute_std_dev_2(previousClose,volatility);
+        std_dev_2_25=stdDevCal.compute_std_dev_2_25(previousClose,volatility);
+        std_dev_2_50=stdDevCal.compute_std_dev_2_50(previousClose,volatility);
+        std_dev_2_75=stdDevCal.compute_std_dev_2_75(previousClose,volatility);
+        std_dev_3=stdDevCal.compute_std_dev_3(previousClose,volatility);
+            
+        std_dev_1_low=previousClose - std_dev_1;
+        std_dev_1_high=previousClose + std_dev_1;
+
+        std_dev_1_25_low=previousClose - std_dev_1_25;
+        std_dev_1_25_high=previousClose + std_dev_1_25;
+        
+        std_dev_1_50_low=previousClose - std_dev_1_50;
+        std_dev_1_50_high=previousClose + std_dev_1_50;
+
+        std_dev_1_75_low=previousClose - std_dev_1_75;
+        std_dev_1_75_high=previousClose + std_dev_1_75;
+        
+        std_dev_1_77_low=previousClose - std_dev_1_77;
+        std_dev_1_77_high=previousClose + std_dev_1_77;
+        
+
+        std_dev_2_high=previousClose + std_dev_2;
+        std_dev_2_low=previousClose - std_dev_2;
+        
+        std_dev_2_25_low=previousClose - std_dev_2_25;
+        std_dev_2_25_high=previousClose + std_dev_2_25;
+
+        std_dev_2_50_low=previousClose - std_dev_2_50;
+        std_dev_2_50_high=previousClose + std_dev_2_50;
+
+        std_dev_2_75_low=previousClose - std_dev_2_75;
+        std_dev_2_75_high=previousClose + std_dev_2_75;
+
+
+        std_dev_3_high=previousClose + std_dev_3;
+        std_dev_3_low=previousClose - std_dev_3;
+     }
+    public void liveTrade(String symbol, Double previousClose,Double volatility)
+     {
+       AlpacaApiClient apiClient = new AlpacaApiClient();
+       StandardDeviationCal stdDevCal = new StandardDeviationCal();
+       pre_compute_standard_deviations(stdDevCal, previousClose,volatility);// To do: pre compute the results beforehand
+       StockBar bar = apiClient.fetchLatest1MinBar(symbol);//apiClient.fetchLatest1HrBar(symbol);
+       if (bar == null) {
+            System.out.println("No stock bar found for symbol: " + symbol);
+            return;
+           }
+        
+          double high = bar.getHigh();
+          double low = bar.getLow();  
+          double close = bar.getClose();
+          double open = bar.getOpen();
+          String breach_low = "none";
+          String breach_high = "none";
+          boolean isBuySignal = false;
+          boolean isSellSignal = false;
+          boolean isStopLossSignal=false;
+           // Check LOW breaches
+            if (low < std_dev_3_low) {
+                breach_low = "low_3_breach";
+            } else if (low < std_dev_2_75_low) {
+                breach_low = "low_2_75_breach";
+            } else if (low < std_dev_2_50_low) {
+                breach_low = "low_2_50_breach";
+            } else if (low < std_dev_2_25_low) {
+                breach_low = "low_2_25_breach";
+            } else if (low < std_dev_2_low) {
+                breach_low = "low_2_breach";
+            } else if (low < std_dev_1_77_low) {
+                breach_low = "low_1_77_breach";
+                isStopLossSignal = true;
+            } else if (low < std_dev_1_75_low) {
+                breach_low = "low_1_75_breach";
+                
+            } 
+            else if (low < std_dev_1_50_low) {
+                breach_low = "low_1_50_breach";
+                isBuySignal = true;
+            } else if (low < std_dev_1_25_low) {
+                breach_low = "low_1_25_breach";
+            } else if (low < std_dev_1_low) {
+                breach_low = "low_1_breach";
+            }
+
+            int currentHoldings = orderDao.getCurrentHoldings(symbol);
+
+            if (open > std_dev_1_50_low&& currentHoldings > 0) {
+                System.out.println("App: SELL signal for " + symbol + " high_price: " + bar.getOpen()+" > "+std_dev_1_50_low);
+                isSellSignal = true;
+            }
+
+            // Check HIGH breaches
+            if (high > std_dev_3_high) {
+                breach_high = "high_3_breach";              
+            } else if (high > std_dev_2_75_high) {
+                breach_high = "high_2_75_breach";
+            } else if (high > std_dev_2_50_high) {
+                breach_high = "high_2_50_breach";
+            } else if (high > std_dev_2_25_high) {
+                breach_high = "high_2_25_breach";
+            } else if (high > std_dev_2_high) {
+                breach_high = "high_2_breach";
+            } else if (high > std_dev_1_75_high) {
+                breach_high = "high_1_75_breach";
+            } else if (high > std_dev_1_50_high) {
+                breach_high = "high_1_50_breach";
+            } else if (high > std_dev_1_25_high) {
+                breach_high = "high_1_25_breach";
+            } else if (high > std_dev_1_high) {
+                breach_high = "high_1_breach";
+            }
+           
+            int deviationId =dao.saveStockVolStdDev(
+                bar,
+                LocalDate.now(),
+                std_dev_1_low,
+                std_dev_1_high,
+
+                std_dev_1_25_low,
+                std_dev_1_25_high,
+                
+                std_dev_1_50_low,
+                std_dev_1_50_high,
+                
+                std_dev_1_75_low,
+                std_dev_1_75_high,
+
+                std_dev_2_low,
+                std_dev_2_high,
+
+                std_dev_2_25_low,
+                std_dev_2_25_high,
+                
+                std_dev_2_50_low,
+                std_dev_2_50_high,
+
+                std_dev_2_75_low,
+                std_dev_2_75_high,
+
+                std_dev_3_low,
+                std_dev_3_high,
+
+                volatility,
+                breach_low,
+                breach_high
+               );
+        int alpacaHoldings = 0;
+        try {
+                alpacaHoldings = apiClient.getBuyOrders(symbol);
+                System.out.println("Current holdings for " + symbol + ": " + alpacaHoldings);
+            } 
+        catch (Exception e) {
+                System.out.println("Could not fetch position from Alpaca: " + e.getMessage());
+            }
+   
+        int quantity=5;   
+        if (isBuySignal && deviationId != -1&&alpacaHoldings<=5){ 
+            //apiClient.placeBracketOrder("TSLA", 5, 312.14, 315.01);
+            apiClient.placeBracketOrder(symbol, quantity, std_dev_1_77_low, std_dev_1_low);
+            orderDao.placeBuyOrder(
+                    deviationId,
+                    symbol,
+                    bar.getLow(),
+                    quantity,
+                    LocalDate.now(),
+                    volatility
+                    );
+              }  
+              else if (alpacaHoldings > 5) {
+        System.out.println("App::liveTrade:300 Buy blocked: Already holding max (5) shares of " + symbol);
+    } 
+
+             //commenting the below code as sell will be handled by bracket order 
+           /*  if (isSellSignal && deviationId != -1&&!isBuySignal) {
+                int sellQty = Math.min(currentHoldings, quantity); // Sell only what you have or up to your default qty
+                orderDao.placeSellOrder(
+                    deviationId,
+                    symbol,
+                    bar.getOpen(),
+                    sellQty,
+                    LocalDate.now(),
+                    volatility
+                );
+            } */ 
+
+     }
     public static void simlateTrade(String symbol)
      {
       AlpacaApiClient apiClient = new AlpacaApiClient();
@@ -139,7 +439,7 @@ public class App
         
           for(int i=0;i<bars.size();i++) {
             
-            System.out.println("App:40 StockBar for " + symbol + " on " + date + ": " +date);                            
+            System.out.println("App:235 StockBar for " + symbol + " on " + date + ": " +date);                            
             StockBar bar = bars.get(i);  
             double high = bar.getHigh();
             double low = bar.getLow();  

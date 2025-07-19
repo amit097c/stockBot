@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -40,7 +41,16 @@ public class StockPriceDAO {
 
               }*/
 
-
+     public void close() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("StockPriceDAO::close:48 Connection closed.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
     public int saveStockVolStdDev(StockBar bar,LocalDate date,double std_dev_1_low, double std_dev_1_high, 
                                    double std_dev_1_25_low, double std_dev_1_25_high,
                                    double std_dev_1_50_low, double std_dev_1_50_high,

@@ -1,0 +1,20 @@
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
+public class MySQLConnection {
+    public static void main(String[] args) {
+        String url = "jdbc:mysql://localhost:3306/stockdb"; // Replace with your DB name
+        String user = "root"; // Your MySQL username
+        String password = "your_password"; // Your MySQL password
+
+        try {
+            Connection conn = DriverManager.getConnection(url, user, password);
+            System.out.println("✅ Connected to MySQL database!");
+            conn.close();
+        } catch (SQLException e) {
+            System.out.println("❌ Connection failed.");
+            e.printStackTrace();
+        }
+    }
+}

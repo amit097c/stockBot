@@ -87,18 +87,18 @@ public class App {
                     System.err.println("Error for symbol " + symbol + ": " + e.getMessage());
                     e.printStackTrace();
                 }
-           }, initialDelay, intervalMillis, TimeUnit.MILLISECONDS);
+           }, 0, intervalMillis, TimeUnit.MILLISECONDS);
         }
 
       ScheduledExecutorService shutdownScheduler = Executors.newSingleThreadScheduledExecutor();
         shutdownScheduler.scheduleAtFixedRate(() -> {
             LocalTime now = LocalTime.now(ZoneId.of("America/New_York"));
-            if (now.isAfter(LocalTime.of(16, 0))) {
-                System.out.println("Stopping trading scheduler at: " + now);
-                scheduler.shutdownNow();
-                shutdownScheduler.shutdownNow();
-                System.exit(0);
-            }
+            // if (now.isAfter(LocalTime.of(16, 0))) {
+            //     System.out.println("Stopping trading scheduler at: " + now);
+            //     scheduler.shutdownNow();
+            //     shutdownScheduler.shutdownNow();
+            //     System.exit(0);
+            // }
         }, 0, 1, TimeUnit.MINUTES);
     }
 public static double round(double value, int places) {
@@ -118,22 +118,20 @@ private StockBar getPrevBar(String symbol) {
        AlpacaApiClient apiClient = new AlpacaApiClient();
        Map<String, StdDevRange> stdDevs = computeStdDevs(previousClose, volatility);
        StockBar prevBar = getPrevBar(symbol);
-       
 
-       StockBar bar = apiClient.fetchLatest1MinBar(symbol);
-
+      // StockBar bar = apiClient.fetchLatest1MinBar(symbol);
        System.out.println("App::liveTrade:130 Fetching data for: "+symbol+" Thread: "+Thread.currentThread().getId());
-
         // Uncomment the following lines if you want to fetch bars for the previous week
-        //  List<StockBar> bars = apiClient.fetchBarsForPreviousWeek(symbol);
-        // for(StockBar bar : bars) {
-        //     System.out.println("App::liveTrade:109: Processing previous week bar for " + symbol + ": " + bar);
-        
-        if (bar == null) {
-            System.out.println("No stock bar found for symbol: " + symbol);
-            return;
-        }    
-
+        List<StockBar> bars = apiClient.fetchBarsForPreviousWeek(symbol);
+        for(int i=0;i<bars.size();i++)
+         {
+            StockBar bar = bars.get(i);
+            System.out.println("App::liveTrade:109: Processing previous week bar for " + symbol + ": " + bar);
+            
+            if (bars == null) {
+                System.out.println("No stock bar found for symbol: " + symbol);
+                return;
+            }    
         boolean isBuySignal = isBuySignal(bar,prevBar,stdDevs);        
         String breachLow = detectLowBreach(bar.getLow(),stdDevs);
         String breachHigh = detectHighBreach(bar.getHigh(),stdDevs);
@@ -160,12 +158,12 @@ private StockBar getPrevBar(String symbol) {
                 if(!order_id.isEmpty()) {
                     {
                         System.out.println("App::liveTrade:170: Buy order placed for " + symbol + " with qty: " + qty+" order_id: " + order_id+ " Thread: "+Thread.currentThread().getId());                     
-                        double order_filled_price = -1;
-                        do
-                        {
-                            order_filled_price = apiClient.waitForFilledPrice(order_id, 1000, 2000);
-                            System.out.println("App::liveTrade:175: Buy order filled for " + symbol + " at price: " + order_filled_price+" Thread: "+Thread.currentThread().getId());                         
-                        } while(order_filled_price == -1);
+                        double order_filled_price = limitPrice;//-1;
+                        // do
+                        // {
+                        //     order_filled_price = apiClient.waitForFilledPrice(order_id, 1000, 2000);
+                        //     System.out.println("App::liveTrade:175: Buy order filled for " + symbol + " at price: " + order_filled_price+" Thread: "+Thread.currentThread().getId());                         
+                        //} while(order_filled_price == -1);
 
                         orderDao.placeBuyOrder(
                             deviationId,
@@ -192,24 +190,28 @@ private StockBar getPrevBar(String symbol) {
                         }
                         stopLoss = round(stopLoss,2);
                         takeProfit = round(takeProfit,2);
-                        String longBuyToCloseOrderId = apiClient.placeOcoSellToClose(symbol, qty, takeProfit,stopLoss,order_filled_price);
+                        orderDao.placeLongBuyToCloseOrder( deviationId,symbol, stopLoss,qty,  LocalDate.now(),volatility, order_id+"sl");
+                        orderDao.placeLongBuyToCloseOrder( deviationId,symbol, takeProfit,qty,  LocalDate.now(),volatility, order_id+"tp");
+               
+
+                        /*String longBuyToCloseOrderId = apiClient.placeOcoSellToClose(symbol, qty, takeProfit,stopLoss,order_filled_price);
                         if(longBuyToCloseOrderId.isEmpty()) {
                                 System.out.println("App::liveTrade:144: Failed to place stop loss order for " + symbol);
                             }else {
 
-                                    OcoFill fill = apiClient.waitForOcoFillByClientId(longBuyToCloseOrderId, /*timeoutMs*/ 200*60_000L, /*pollMs*/ 2000L);
-                                    if (fill != null) {
+                                    //OcoFill fill = apiClient.waitForOcoFillByClientId(longBuyToCloseOrderId, /*timeoutMs*/ //200*60_000L, /*pollMs*/ 2000L);
+                                    /*if (fill != null) {
                                         System.out.println("App::liveTrade:209: OCO " + fill.which + " filled for " + symbol + " at " + fill.price);
                                         if ("TP".equals(fill.which)) {
                                             orderDao.placeLongBuyToCloseOrder( deviationId,symbol, fill.price,qty,  LocalDate.now(),volatility, fill.orderId);
-                                        } else {
+                                        } else {orderId
                                             orderDao.placeLongBuyToCloseOrder( deviationId,symbol, fill.price,qty,  LocalDate.now(),volatility, fill.orderId);
                                         }
                                     }else{
                                             System.out.println("App:liveTrade:219Timed out waiting for OCO fill for " + symbol);
                                          }
                                
-                                 }
+                                 }*/
                     }
                 }
                 else    
@@ -234,11 +236,11 @@ private StockBar getPrevBar(String symbol) {
                  if(order_id!=null&&!order_id.isEmpty())
                   {
                     System.out.println("App::liveTrade:245 Short sell order placed for " + symbol+" order id: "+order_id+" Thread: "+Thread.currentThread().getId());
-                    double order_filled_price = -1;
-                    do{
+                    double order_filled_price = limitPrice;//-1;
+                   /*  do{
                         order_filled_price = apiClient.waitForFilledPrice(order_id, 10000, 5000);
                         System.out.println("App::liveTrade:300 Short sell order filled for " + symbol + " at price: " + order_filled_price+" order id: "+order_id+" Thread: "+Thread.currentThread().getId());
-                    } while(order_filled_price == -1);
+                    } while(order_filled_price == -1);*/
                      orderDao.placeShortSellOrder(
                             deviationId,
                             symbol,
@@ -264,25 +266,28 @@ private StockBar getPrevBar(String symbol) {
                         } 
                    stopLoss = round(stopLoss,2);
                    takeProfit = round(takeProfit,2);     
-                    String shortSellBuyToCloseOrderId= apiClient.placeOcoBuyToClose(symbol, qty,takeProfit,stopLoss,order_filled_price);            
-                    if(shortSellBuyToCloseOrderId.isEmpty()){
-                        System.out.println("App::liveTrade:278: Failed to place short sell buy to close order for " + symbol+" Thread: "+Thread.currentThread().getId());
-                    } else {
-                        System.out.println("App::liveTrade:280: Short sell buy to close order placed for " + symbol + " with ID: " + shortSellBuyToCloseOrderId+" Thread: "+Thread.currentThread().getId());
-                        OcoFill fill = apiClient.waitForOcoFillByClientId(shortSellBuyToCloseOrderId, /*timeoutMs*/ 20*60_000L, /*pollMs*/ 2000L);
-                         if (fill != null) {
-                            System.out.println("OCO " + fill.which + " filled for " + symbol + " at " + fill.price);
-                            if ("TP".equals(fill.which)) {
-                               // orderDao.placeCancelStopBuyOrder(symbol);     // because stoploss buy order never logged/stored
-                                orderDao.placeShortSellBuyToCloseOrder( deviationId,symbol, fill.price,qty,  LocalDate.now(),volatility, fill.orderId);
-                            } else {
-                               // orderDao.placeCancelLimitBuyOrder(symbol);    // because takeprofit buy order never logged/stored
-                                orderDao.placeShortSellBuyToCloseOrder( deviationId,symbol, fill.price,qty,  LocalDate.now(),volatility, fill.orderId);
-                            }
-                        } else {
-                            System.out.println("App:livetrade:293: Timed out waiting for OCO fill for " + symbol);
-                        }
-                    }
+                  orderDao.placeShortSellBuyToCloseOrder( deviationId,symbol, stopLoss,qty,  LocalDate.now(),volatility, order_id+"sl");
+                  orderDao.placeShortSellBuyToCloseOrder( deviationId,symbol, takeProfit,qty,  LocalDate.now(),volatility, order_id+"tp");
+   
+                    // String shortSellBuyToCloseOrderId= apiClient.placeOcoBuyToClose(symbol, qty,takeProfit,stopLoss,order_filled_price);            
+                    // if(shortSellBuyToCloseOrderId.isEmpty()){
+                    //     System.out.println("App::liveTrade:278: Failed to place short sell buy to close order for " + symbol+" Thread: "+Thread.currentThread().getId());
+                    // } else {
+                    //     System.out.println("App::liveTrade:280: Short sell buy to close order placed for " + symbol + " with ID: " + shortSellBuyToCloseOrderId+" Thread: "+Thread.currentThread().getId());
+                    //     OcoFill fill = apiClient.waitForOcoFillByClientId(shortSellBuyToCloseOrderId, /*timeoutMs*/ 20*60_000L, /*pollMs*/ 2000L);
+                    //      if (fill != null) {
+                    //         System.out.println("OCO " + fill.which + " filled for " + symbol + " at " + fill.price);
+                    //         if ("TP".equals(fill.which)) {
+                    //            // orderDao.placeCancelStopBuyOrder(symbol);     // because stoploss buy order never logged/stored
+                    //             orderDao.placeShortSellBuyToCloseOrder( deviationId,symbol, fill.price,qty,  LocalDate.now(),volatility, fill.orderId);
+                    //         } else {
+                    //            // orderDao.placeCancelLimitBuyOrder(symbol);    // because takeprofit buy order never logged/stored
+                    //             orderDao.placeShortSellBuyToCloseOrder( deviationId,symbol, fill.price,qty,  LocalDate.now(),volatility, fill.orderId);
+                    //         }
+                    //     } else {
+                    //         System.out.println("App:livetrade:293: Timed out waiting for OCO fill for " + symbol);
+                    //     }
+                    // }
                 }
             }
             else if(orderDao.getShortHoldings(symbol) >= MAX_HOLDINGS)  // check if short sell holdings are less than max holdings
@@ -300,7 +305,7 @@ private StockBar getPrevBar(String symbol) {
             
         }  
     
-     // }// end of for loop for test run
+      }// end of for loop for test run
     
     }
 

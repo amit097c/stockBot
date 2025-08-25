@@ -1443,13 +1443,13 @@ public boolean placeShortSellWithManualOCO(String symbol, int qty, double stopLo
 }
 public String  placeLongEntry(String symbol, int qty,String type,double limitPrice)
  {
-    if (!"market".equalsIgnoreCase(type) && !"limit".equalsIgnoreCase(type)) {
-        throw new IllegalArgumentException("type must be market or limit");
-    }
-    if (!"limit".equalsIgnoreCase(type) ) {
-        throw new IllegalArgumentException("limitPrice required for limit orders");
-    }
-    limitPrice = Math.round(limitPrice * 100.0) / 100.0;
+    // if (!"market".equalsIgnoreCase(type) && !"limit".equalsIgnoreCase(type)) {
+    //     throw new IllegalArgumentException("type must be market or limit");
+    // }
+    // if (!"limit".equalsIgnoreCase(type) ) {
+    //     throw new IllegalArgumentException("limitPrice required for limit orders");
+    // }
+    // limitPrice = Math.round(limitPrice * 100.0) / 100.0;
     String order_id=generateClientOrderId(symbol, "longEntry");
     return order_id; // paper test run
     /*try{
@@ -1496,6 +1496,9 @@ public String  placeLongEntry(String symbol, int qty,String type,double limitPri
 
 public String  placeShortEntry(String symbol, int qty,String type,double limitPrice)
  {
+    String order_id=generateClientOrderId(symbol, "shortEntry");
+    return order_id; // paper test run
+    /* 
     if (!"market".equalsIgnoreCase(type) && !"limit".equalsIgnoreCase(type)) {
         throw new IllegalArgumentException("type must be market or limit");
     }
@@ -1543,7 +1546,7 @@ public String  placeShortEntry(String symbol, int qty,String type,double limitPr
         System.err.println("AlpacaApiClient::placeShortEntry:1179: Error placing short entry order: " + e.getMessage());
         e.printStackTrace();
     } 
-    return "";
+    return "";*/
  }
 
 public boolean placeLongBuyWithManualOCO(String symbol, int qty,String order_id) {

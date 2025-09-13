@@ -9,3 +9,4 @@ temp/
 .cache/
 *.swp
 *.txt
+target/*

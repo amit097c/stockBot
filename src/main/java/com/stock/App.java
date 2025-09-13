@@ -64,13 +64,13 @@ public class App {
     public static void testLiveTrade() {
         System.out.println("App::testLiveTrade: Starting live trading simulation...");
         Map<String, List<Double>> symbolCloseVolMap = Map.of(
-                "TSLA", List.of(340.01, 0.4612),
-                "AAPL", List.of(227.76, 0.2360),
-                "AMZN", List.of(228.84, 0.2402),
-                "GOOG", List.of(206.72, 0.2981),
-                "META", List.of(754.79, 0.2669),
-                "NVDA", List.of(177.99, 0.4418),
-                "MSFT", List.of(507.23, 0.1858)
+                "TSLA", List.of(345.98, 0.4363),
+                "AAPL", List.of(232.56, 0.2360),
+                "AMZN", List.of(231.60, 0.2295),
+                "GOOG", List.of(212.37, 0.2970),
+                "META", List.of(751.11, 0.2515),
+                "NVDA", List.of(180.17, 0.3259),
+                "MSFT", List.of(509.64, 0.1772)
         );
 
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(symbolCloseVolMap.size());
@@ -326,11 +326,14 @@ private StockBar getPrevBar(String symbol) {
         }
         if(prevBar!=null)
         {
+
            if(prevBar.getLow()>=stdDevs.get("1.50").low||prevBar.getHigh()>=stdDevs.get("1.50").low||prevBar.getClose()>=stdDevs.get("1.50").low||prevBar.getOpen()>=stdDevs.get("1.50").low)
             {
+                System.out.println("App::isBuySignal:332: Previous bar low: " + prevBar.getLow() + ", high: " + prevBar.getHigh() + ", close: " + prevBar.getClose() + ", open: " + prevBar.getOpen()+" std_dev_1_50 low: "+stdDevs.get("1.50").low);
                 return bar.getLow() < stdDevs.get("1.50").low;
             }
         }
+        System.out.println("App::isBuySignal:334: Previous bar is null, cannot determine buy signal.");
         return false;
     }
 
@@ -340,9 +343,11 @@ private StockBar getPrevBar(String symbol) {
      {
          if(prevBar.getHigh()<=stdDevs.get("1.50").high||prevBar.getLow()<=stdDevs.get("1.50").high||prevBar.getClose()<=stdDevs.get("1.50").high||prevBar.getOpen()<=stdDevs.get("1.50").high)
           {
+                System.out.println("App::isSellSignal:346: Previous bar low: " + prevBar.getLow() + ", high: " + prevBar.getHigh() + ", close: " + prevBar.getClose() + ", open: " + prevBar.getOpen()+" std_dev_1_50 high: "+stdDevs.get("1.50").high);
                 return bar.getHigh() > stdDevs.get("1.50").high;//bar.getOpen() > stdDevs.get("1.00").low && currentHoldings > 0;
           }
      }
+    System.out.println("App::isSellSignal:350: Previous bar is null, cannot determine sell signal.");
     return false;//bar.getOpen() > stdDevs.get("1.00").low && currentHoldings > 0;
     }
 

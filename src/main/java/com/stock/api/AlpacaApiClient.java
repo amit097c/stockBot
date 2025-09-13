@@ -1162,8 +1162,8 @@ public String placeOcoBuyToClose(String symbol, int qty, double takeProfitLimitB
  }
 public String placeOcoSellToClose(String symbol, int qty, double takeProfitLimitSell, double stopLossSell,double longBuyEntryPrice)
  {
-    return generateClientOrderId(symbol, "sell_to_close");
-   /*  try{
+  
+    try{
         URL url = new URL("https://paper-api.alpaca.markets/v2/orders");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
@@ -1234,7 +1234,7 @@ public String placeOcoSellToClose(String symbol, int qty, double takeProfitLimit
     {
         System.err.println("AlpacaApiClient::placeOcoBuyToClose:971 Exception in placeOcoBuyToClose: "+e.getMessage());
     }
-    return null;*/
+    return null;
  }
 
 public int placeShortSellOrder(String symbol, int qty,String order_id) {
@@ -1352,46 +1352,7 @@ public int placeShortSellBracketOrder(String symbol, int qty, double stopLoss, d
     return -1; // Indicate failure
 
  }
-// public void coverShort(String symbol, int qty) {
-//     try {
 
-//         URL url = new URL("https://paper-api.alpaca.markets/v2/orders");
-//         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-//         conn.setRequestMethod("POST");
-//         conn.setRequestProperty("APCA-API-KEY-ID", API_KEY);
-//         conn.setRequestProperty("APCA-API-SECRET-KEY", API_SECRET);
-//         conn.setRequestProperty("Content-Type", "application/json");
-//         conn.setDoOutput(true);
-
-//         JSONObject order = new JSONObject();
-//         order.put("symbol", symbol);
-//         order.put("qty", qty);
-//         order.put("side", "buy"); // BUY to cover
-//         order.put("type", "market");
-//         order.put("time_in_force", "day");
-
-//         try (OutputStream os = conn.getOutputStream()) {
-//             os.write(order.toString().getBytes(StandardCharsets.UTF_8));
-//         }
-
-//         int status = conn.getResponseCode();
-//         InputStream is = (status < 400) ? conn.getInputStream() : conn.getErrorStream();
-//         try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
-//             String line;
-//             StringBuilder response = new StringBuilder();
-//             while ((line = br.readLine()) != null) {
-//                 response.append(line);
-//             }
-//             System.out.println("Cover Response: " + response);
-//         }
-
-
-        
-
-//     } catch (Exception e) {
-//         System.err.println("Error placing cover order: " + e.getMessage());
-//     }
-// }
 public boolean placeShortSellWithManualOCO(String symbol, int qty, double stopLossPrice, double takeProfitPrice,String order_id) {
     try {
         // 1. Market Sell to open short
@@ -1451,8 +1412,8 @@ public String  placeLongEntry(String symbol, int qty,String type,double limitPri
     }
     limitPrice = Math.round(limitPrice * 100.0) / 100.0;
     String order_id=generateClientOrderId(symbol, "longEntry");
-    return order_id; // paper test run
-    /*try{
+
+    try{
         URL url = new URL("https://paper-api.alpaca.markets/v2/orders");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
@@ -1490,8 +1451,8 @@ public String  placeLongEntry(String symbol, int qty,String type,double limitPri
    catch(Exception e) {
         System.err.println("AlpacaApiClient::placeLongEntry:1325: Error placing long entry order: " + e.getMessage());
         e.printStackTrace();
-    } */
-    //return "";
+    } 
+    return "";
  }
 
 public String  placeShortEntry(String symbol, int qty,String type,double limitPrice)

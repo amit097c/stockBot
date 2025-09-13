@@ -1,0 +1,11 @@
+.history/*
+.env
+.env.*
+*.log
+logs/
+*.tmp
+tmp/
+temp/
+.cache/
+*.swp
+*.txt
